@@ -79,6 +79,7 @@ import qupath.lib.images.servers.ImageServerProvider;
 import qupath.lib.images.servers.ServerTools;
 import qupath.lib.images.writers.ImageWriterTools;
 import qupath.lib.images.writers.TileExporter;
+import qupath.lib.images.writers.TileExporterRegion;
 import qupath.lib.io.GsonTools;
 import qupath.lib.io.PathIO;
 import qupath.lib.io.PointIO;
@@ -240,6 +241,7 @@ public class QP {
 			IJTools.class,
 			OpenCVTools.class,
 			TileExporter.class,
+			TileExporterRegion.class,
 			ServerTools.class,
 			PixelClassifierTools.class,
 			
