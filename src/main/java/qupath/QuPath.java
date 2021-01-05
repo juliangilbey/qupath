@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
+import java.util.StringTokenizer;
 
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
@@ -254,6 +255,9 @@ class ScriptCommand implements Runnable {
 	@Option(names = {"-c", "--cmd"}, description = "Groovy script passed a a string", paramLabel = "command")
 	private String scriptCommand;
 	
+	@Option(names = {"-a", "--args"}, description = "Argument passed to the Groovy script as a string", paramLabel = "arguments")
+	private String argsString;
+	
 	@Option(names = {"-i", "--image"}, description = "Path to an image file.", paramLabel = "image")
 	private String imagePath;
 	
@@ -266,6 +270,74 @@ class ScriptCommand implements Runnable {
 	@Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit.")
 	boolean usageHelpRequested;
 	
+/**
+ * [code borrowed from ant.jar]
+ * Crack a command line.
+ * @param toProcess the command line to process.
+ * @return the command line broken into strings.
+ * An empty or null toProcess parameter results in a zero sized array.
+ */
+public static String[] translateCommandline(String toProcess) {
+	if (toProcess == null || toProcess.length() == 0) {
+		//no command? no string
+		return new String[0];
+	}
+	// parse with a simple finite state machine
+	
+	final int normal = 0;
+	final int inQuote = 1;
+	final int inDoubleQuote = 2;
+	int state = normal;
+	final StringTokenizer tok = new StringTokenizer(toProcess, "\"\' ", true);
+	final ArrayList<String> result = new ArrayList<String>();
+	final StringBuilder current = new StringBuilder();
+	boolean lastTokenHasBeenQuoted = false;
+	
+	while (tok.hasMoreTokens()) {
+		String nextTok = tok.nextToken();
+		switch (state) {
+		case inQuote:
+			if ("\'".equals(nextTok)) {
+				lastTokenHasBeenQuoted = true;
+				state = normal;
+			} else {
+				current.append(nextTok);
+			}
+			break;
+		case inDoubleQuote:
+			if ("\"".equals(nextTok)) {
+				lastTokenHasBeenQuoted = true;
+				state = normal;
+			} else {
+				current.append(nextTok);
+			}
+			break;
+		default:
+			if ("\'".equals(nextTok)) {
+				state = inQuote;
+			} else if ("\"".equals(nextTok)) {
+				state = inDoubleQuote;
+			} else if (" ".equals(nextTok)) {
+				if (lastTokenHasBeenQuoted || current.length() != 0) {
+					result.add(current.toString());
+					current.setLength(0);
+				}
+			} else {
+				current.append(nextTok);
+			}
+			lastTokenHasBeenQuoted = false;
+			break;
+		}
+	}
+	if (lastTokenHasBeenQuoted || current.length() != 0) {
+		result.add(current.toString());
+	}
+	if (state == inQuote || state == inDoubleQuote) {
+		throw new RuntimeException("unbalanced quotes in " + toProcess);
+	}
+	return result.toArray(new String[result.size()]);
+}
+
 	@Override
 	public void run() {
 		try {
@@ -356,6 +428,8 @@ class ScriptCommand implements Runnable {
 		ScriptEngineManager manager = new ScriptEngineManager(classLoader);
 		
 		String script = scriptCommand;
+		String argument = argsString;
+
 		ScriptEngine engine;
 		if (script == null) {
 			String ext = scriptFile.substring(scriptFile.lastIndexOf(".")+1);
@@ -375,6 +449,11 @@ class ScriptCommand implements Runnable {
 		
 		// Try to make sure that the standard outputs are used
 		ScriptContext context = new SimpleScriptContext();
+
+		// Define "args" as a Groovy global variable
+		String[] argsArray = translateCommandline(argsString);
+		context.setAttribute("args", argsArray, ScriptContext.ENGINE_SCOPE);
+
 		PrintWriter outWriter = new PrintWriter(System.out, true);
 		PrintWriter errWriter = new PrintWriter(System.err, true);
 		context.setWriter(outWriter);

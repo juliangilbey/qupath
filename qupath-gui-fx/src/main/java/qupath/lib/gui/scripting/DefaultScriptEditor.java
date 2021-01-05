@@ -769,6 +769,8 @@ public class DefaultScriptEditor implements ScriptEditor {
 		ScriptContext context = new SimpleScriptContext();
 		var writer = new ScriptConsoleWriter(console, false);
 		context.setWriter(writer);
+		String[] argsArray = new String[0];
+		context.setAttribute("args", argsArray, ScriptContext.ENGINE_SCOPE);
 		context.setErrorWriter(new ScriptConsoleWriter(console, true));
 		var printWriter = new PrintWriter(writer);
 		
